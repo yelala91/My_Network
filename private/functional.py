@@ -3,6 +3,8 @@
 import numpy as np
 import my_tensor as mtr
 
+eps = 1e-5
+
 class functional:
     # diff is the diff of the last loss about these parameter
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
@@ -19,14 +21,42 @@ class functional:
 class LinFC(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(LinFC, self).__init__(in_dim, out_dim, parameter, diff)
-        self.parameter      = np.random.randn(out_dim, in_dim)
-        self.diff           = np.zeros((out_dim, in_dim))
+        self.parameter      = np.random.randn(out_dim, in_dim+1)
+        self.diff           = np.zeros((out_dim, in_dim+1))
         self.ahead          = mtr.my_tensor(np.zeros((out_dim, 1)))
         self.ahead.operator = self
         self.back_num       = 1
 
     def zero_diff(self):
-        self.diff = np.zeros((self.out_dim, self.in_dim))
+        self.diff = np.zeros((self.out_dim, self.in_dim+1))
+
+    def fval(self):
+        x = self.back[0].val
+        self.ahead.val = np.matmul(self.parameter[:, 1:], x) + self.parameter[:, [0]]
+
+    def grad(self, up_diff):
+        grad_x = np.matmul(up_diff, self.parameter[:, 1:])
+        return [grad_x]
+    
+    def update_diff(self, up_diff):
+        x = self.back[0].val
+        self.diff[:, 1:] = self.diff[:, 1:] + np.matmul(up_diff.T, x.T)
+        self.diff[:, [0]] = up_diff.T
+        # self.diff += np.matmul(up_diff.T, x.T)
+        
+# Conv2d functional
+class Conv2d(functional):
+    def __init__(self, in_dim, shape, parameter=None, diff=None):
+        super(Conv2d, self).__init__(in_dim, None, parameter, diff)
+        self.parameter      = np.random.randn(shape)
+        self.shape          = shape
+        self.diff           = np.zeros(shape)
+        self.ahead          = mtr.my_tensor()
+        self.ahead.operator = self
+        self.back_num       = 1
+
+    def zero_diff(self):
+        self.diff = np.zeros(self.shape)
 
     def fval(self):
         x = self.back[0].val
@@ -50,21 +80,36 @@ class Softmax(functional):
 
     def fval(self):
         x               = self.back[0].val
-        ex              = np.exp(x)
+        # x += eps
+        ex              = np.exp(x-np.max(x))
         self.ahead.val  = ex/np.sum(ex)
 
     def grad(self, up_diff):
         x           = self.back[0].val
-        ex          = np.exp(x)
+        ex          = np.exp(x-np.max(x))
         sum_ex      = np.sum(ex)
-        sum_ex_2    = sum_ex ** 2
+        ex /= sum_ex
+        # sum_ex_2    = sum_ex ** 2
         this_grad_x = np.matmul(ex, ex.T)
-        diag        = np.diag([np.squeeze(ex_i)*sum_ex for ex_i in ex])
+        diag        = np.diag(ex.reshape(len(ex))) # np.diag([np.squeeze(ex_i)*sum_ex for ex_i in ex])
         this_grad_x = diag - this_grad_x
-        this_grad_x = this_grad_x/sum_ex_2
+        # this_grad_x = this_grad_x/sum_ex_2
         grad_x      = np.matmul(up_diff, this_grad_x)
 
         return [grad_x]
+    
+    # def grad(self, up_diff):
+    #     x           = self.back[0].val
+    #     ex          = np.exp(x)
+    #     sum_ex      = np.sum(ex)
+    #     sum_ex_2    = sum_ex ** 2
+    #     this_grad_x = np.matmul(ex, ex.T)
+    #     diag        = np.diag([np.squeeze(ex_i)*sum_ex for ex_i in ex])
+    #     this_grad_x = diag - this_grad_x
+    #     this_grad_x = this_grad_x/sum_ex_2
+    #     grad_x      = np.matmul(up_diff, this_grad_x)
+
+    #     return [grad_x]
 
     def update_diff(self, up_diff):
         pass
@@ -138,10 +183,12 @@ class NLog(functional):
 
     def fval(self):
         x               = self.back[0].val
+        x += eps
         self.ahead.val  = -np.log(x)
 
     def grad(self, up_diff):
         x      = self.back[0].val
+        x += eps
         grad_x = -1/x
         grad_x = up_diff * grad_x
         return [grad_x]
