@@ -46,40 +46,226 @@ class LinFC(functional):
         
 # Conv2d functional
 class Conv2d(functional):
-    def __init__(self, in_dim, shape, parameter=None, diff=None, padding=0, padding_val=0):
+    def __init__(self, in_dim, shape, filter_num=1, parameter=None, diff=None, padding=0, padding_val=0):
         super(Conv2d, self).__init__(in_dim, None, parameter, diff)
-        self.parameter      = np.random.randn(shape)
         self.shape          = shape
-        self.diff           = np.zeros(shape)
         self.ahead          = mtr.my_tensor()
+        self.filter_num     = filter_num
+        self.in_ndim        = len(in_dim)
         self.ahead.operator = self
         self.back_num       = 1
+        self.padding, self.padding_val = padding, padding_val
+        
+        if self.in_ndim == 2:
+            if filter_num == 1:
+                self.parameter = np.random.randn(*shape)
+                self.diff      = np.zeros(shape)
+            else:
+                self.parameter = np.random.randn(filter_num, *shape)
+                self.diff      = np.zeros((filter_num, *shape))
+        elif self.in_ndim == 3:
+            if filter_num == 1:
+                self.parameter = np.random.randn(in_dim[0], *shape)
+                self.diff      = np.zeros((in_dim[0], *shape))
+            else:
+                self.parameter = np.random.randn(filter_num, in_dim[0], *shape)
+                self.diff      = np.zeros((filter_num, in_dim[0], *shape))
 
     def zero_diff(self):
         self.diff = np.zeros(self.shape)
+        filter_num = self.filter_num
+        shape = self.shape
+        
+        if self.in_ndim == 2:
+            self.diff = np.zeros((filter_num, *shape))
+        elif self.in_ndim == 3:
+            self.diff = np.zeros((filter_num, self.in_dim[0], *shape))
 
     def fval(self):
         x = self.back[0].val
-        kernel = self.parameter
-        in_h, in_w          = self.in_dim
+        in_ndim = self.in_ndim
+        kernel  = self.parameter
+        filter_num = self.filter_num
         kernel_h, kernel_w  = self.shape
-        out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+        out_val = None
+        if in_ndim == 2:
+            in_h, in_w   = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
 
-        out_val = np.zeros((out_h, out_w))
-        if self.padding == 0:
-            for i in range(out_h):
-                for j in range(out_w):
-                    out_val[i][j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], kernel)
+            if filter_num == 1:
+                out_val = np.zeros((out_h, out_w))
+                if self.padding == 0:
+                    for i in range(out_h):
+                        for j in range(out_w):
+                            out_val[i, j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], kernel)
+            else:
+                out_val = np.zeros((filter_num, out_h, out_w))
+                if self.padding == 0:
+                    for filter_out_val, filter_kernel in out_val, kernel:
+                        for i in range(out_h):
+                            for j in range(out_w):
+                                filter_out_val[i, j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], filter_kernel)
+        elif in_ndim == 3:
+            channel_num, in_h, in_w = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
+            
+            if filter_num == 1:
+                out_val = np.zeros((out_h, out_w))
+                if self.padding == 0:
+                    for c in range(channel_num):
+                        for i in range(out_h):
+                            for j in range(out_w):
+                                out_val[i, j] += np.tensordot(x[c, i:i+kernel_h, j:j+kernel_w], kernel[c])
+            else:
+                out_val = np.zeros((filter_num, out_h, out_w))
+                if self.padding == 0:
+                    for filter_out_val, filter_kernel in out_val, kernel:
+                        for c in range(channel_num):
+                            for i in range(out_h):
+                                for j in range(out_w):
+                                    filter_out_val[i, j] += np.tensordot(x[c, i:i+kernel_h, j:j+kernel_w], filter_kernel[c])
         
         self.ahead.val = out_val
 
     def grad(self, up_diff):
-        grad_x = np.matmul(up_diff, self.parameter)
+        
+        x = self.back[0].val
+        in_ndim = self.in_ndim
+        kernel  = self.parameter
+        filter_num = self.filter_num
+        kernel_h, kernel_w  = self.shape
+        grad_x = None
+        
+        if in_ndim == 2:
+            in_h, in_w   = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
+
+            if filter_num == 1:
+                grad_x = np.zeros((in_h, in_w))
+                for i in range(out_h):
+                    for j in range(out_w):
+                        grad_x[i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel)
+            else:
+                grad_x = np.zeros((in_h, in_w))
+                for filter_kernel, filter_up_diff in kernel, up_diff:
+                    for i in range(out_h):
+                        for j in range(out_w):
+                            grad_x[i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel)
+        elif in_ndim == 3:
+            channel_num, in_h, in_w = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
+            
+            if filter_num == 1:
+                grad_x = np.zeros((channel_num, in_h, in_w))
+                for c in range(channel_num):
+                    for i in range(out_h):
+                        for j in range(out_w):
+                            grad_x[c, i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel[c])
+            else:
+                grad_x = np.zeros((channel_num, in_h, in_w))
+                for filter_kernel, filter_up_diff in kernel, up_diff:
+                    for c in range(channel_num):
+                        for i in range(out_h):
+                            for j in range(out_w):
+                                grad_x[c, i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel[c])
+        
         return [grad_x]
     
     def update_diff(self, up_diff):
+        # x = self.back[0].val
+        # in_h, in_w          = self.in_dim
+        # kernel_h, kernel_w  = self.shape
+        # out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+        
         x = self.back[0].val
-        self.diff += np.matmul(up_diff.T, x.T)
+        in_ndim = self.in_ndim
+        kernel  = self.parameter
+        filter_num = self.filter_num
+        kernel_h, kernel_w  = self.shape
+        
+        if in_ndim == 2:
+            in_h, in_w   = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
+            
+            if filter_num == 1:
+                for i in range(kernel_h):
+                    for j in range(kernel_w):
+                        self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:out_w]))
+            else:
+                for filter_diff, filter_up_diff in self.diff, up_diff:
+                    for i in range(kernel_h):
+                        for j in range(kernel_w):
+                            filter_diff[i, j] += (np.tensordot(filter_up_diff, x[i:i+out_h, j:out_w]))
+        elif in_ndim == 3:
+            channel_num, in_h, in_w = self.in_dim
+            out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
+            
+            if filter_num == 1:
+                for c in range(channel_num):
+                    for i in range(out_h):
+                        for j in range(out_w):
+                            self.diff[c, i, j] += (np.tensordot(up_diff, x[c, i:i+out_h, j:out_w]))
+            else:
+                for filter_diff, filter_up_diff in self.diff, up_diff:
+                    for c in range(channel_num):
+                        for i in range(out_h):
+                            for j in range(out_w):
+                                filter_diff[c, i, j] += (np.tensordot(filter_up_diff, x[c, i:i+out_h, j:out_w]))
+            
+                
+# Conv3d
+# class Conv3d(functional):
+#     def __init__(self, in_dim, shape, parameter=None, diff=None, padding=0, padding_val=0):
+#         super(Conv3d, self).__init__(in_dim, None, parameter, diff)
+#         self.parameter      = np.random.randn(shape)
+#         self.shape          = shape
+#         self.diff           = np.zeros(shape)
+#         self.ahead          = mtr.my_tensor()
+#         self.ahead.operator = self
+#         self.back_num       = 1
+
+#     def zero_diff(self):
+#         self.diff = np.zeros(self.shape)
+
+#     def fval(self):
+#         x = self.back[0].val
+        
+#         kernel = self.parameter
+#         in_h, in_w          = self.in_dim
+#         kernel_dim, kernel_h, kernel_w  = self.shape
+#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+
+#         out_val = np.zeros((out_h, out_w))
+#         if self.padding == 0:
+#             for i in range(out_h):
+#                 for j in range(out_w):
+#                     out_val[i][j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], kernel)
+        
+#         self.ahead.val = out_val
+
+#     def grad(self, up_diff):
+#         in_h, in_w          = self.in_dim
+#         kernel_h, kernel_w  = self.shape
+#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+        
+#         grad_x = np.zeros((in_h, in_w))
+#         kernel = self.parameter
+        
+#         for i in range(out_h):
+#             for j in range(out_w):
+#                 grad_x[i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel)
+        
+#         return [grad_x]
+    
+#     def update_diff(self, up_diff):
+#         x = self.back[0].val
+#         in_h, in_w          = self.in_dim
+#         kernel_h, kernel_w  = self.shape
+#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+        
+#         for i in range(kernel_h):
+#             for j in range(kernel_w):
+#                 self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:out_w]))
 
 # Softmax function
 class Softmax(functional):

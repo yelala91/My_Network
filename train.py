@@ -71,7 +71,7 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
             if np.argmax(model.fval(x_valid_data[j]).val) == y_valid_data[j]:
                 acc += 1
         acc = acc/len(x_valid_data)
-        if acc > 0.77:
+        if acc > 0.78:
             break
         print(f"train done: {(i+1)/epoch*100:.2f}%, the accuracy: {acc*100:.2f}%, the norm of parameter: {norm_param(model.parameter()):.2e}")
 

@@ -25,6 +25,40 @@ class neural_network:
 
     def forward(self, x):
         pass
+    
+    def forward(self):
+        for layer in self.layers:
+            layer.fval()
+
+    def get_x(self):
+        return self.layers[0].back[0]
+
+    def fval(self, x):
+        self.layers[0].back[0].val = x
+        self.forward()
+
+        return self.layers[-1].ahead
+    
+    def zero_diff(self):
+        for layer in self.layers:
+            if layer.parameter is not None:
+                layer.zero_diff()
+    
+    def ahead(self):
+        return self.layers[-1].ahead
+    
+    def parameter(self):
+        param = []
+        for layer in self.layers:
+            if layer.parameter is not None:
+                param.append(layer.parameter)
+        return param
+    
+    def update(self, lr, sigma):
+        for layer in self.layers:
+            if layer.parameter is not None:
+                layer.parameter += -lr * (layer.diff + sigma*layer.parameter)
+
 
 class my_nn(neural_network):
     def __init__(self):
@@ -34,7 +68,7 @@ class my_nn(neural_network):
             fnl.LinFC(128, 32),
             fnl.LinFC(32, 10)
         ]
-
+    
     def forward(self, x):
         for layer in self.layers:
             x = layer.val(x)
