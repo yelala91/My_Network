@@ -64,7 +64,7 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
         train_loss.append(loss[0,0])
         valid_loss.append(np.squeeze(nn.Loss(model, x_valid_data, y_valid_data, k_num)))
 
-        if i % 40 == 0:
+        if i % int(epoch/3) == 0:
             lr /= 5
         acc = 0
         for j in range(len(x_valid_data)):

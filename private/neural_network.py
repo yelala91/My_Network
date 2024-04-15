@@ -4,6 +4,21 @@ import functional as fnl
 import numpy as np
 import my_tensor as mtr
 
+def layer_init(layers):
+    start = mtr.my_tensor()
+    back = start
+    for layer in layers:
+        for i in range(layer.back_num):
+            layer.back.append(back)
+            if i >= 1:
+                layer.back.append(layers[layer.extra_back[i-1]].back[0])
+        back = layer.ahead
+    
+    return layers
+
+def layers(self, layer_list):
+    self.layers = layer_init(layer_list)
+
 class neural_network:
     def __init__(self):
         pass
@@ -23,6 +38,7 @@ class my_nn(neural_network):
     def forward(self, x):
         for layer in self.layers:
             x = layer.val(x)
+
 
 def Loss(model, x, y, kinds_num):
     n = len(x)

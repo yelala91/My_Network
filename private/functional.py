@@ -3,7 +3,7 @@
 import numpy as np
 import my_tensor as mtr
 
-eps = 1e-5
+eps = 1e-6
 
 class functional:
     # diff is the diff of the last loss about these parameter
@@ -23,7 +23,7 @@ class LinFC(functional):
         super(LinFC, self).__init__(in_dim, out_dim, parameter, diff)
         self.parameter      = np.random.randn(out_dim, in_dim+1)
         self.diff           = np.zeros((out_dim, in_dim+1))
-        self.ahead          = mtr.my_tensor(np.zeros((out_dim, 1)))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
 
@@ -31,7 +31,7 @@ class LinFC(functional):
         self.diff = np.zeros((self.out_dim, self.in_dim+1))
 
     def fval(self):
-        x = self.back[0].val
+        x = self.back[0].val.reshape(self.in_dim, 1)
         self.ahead.val = np.matmul(self.parameter[:, 1:], x) + self.parameter[:, [0]]
 
     def grad(self, up_diff):
@@ -46,7 +46,7 @@ class LinFC(functional):
         
 # Conv2d functional
 class Conv2d(functional):
-    def __init__(self, in_dim, shape, parameter=None, diff=None):
+    def __init__(self, in_dim, shape, parameter=None, diff=None, padding=0, padding_val=0):
         super(Conv2d, self).__init__(in_dim, None, parameter, diff)
         self.parameter      = np.random.randn(shape)
         self.shape          = shape
@@ -60,7 +60,18 @@ class Conv2d(functional):
 
     def fval(self):
         x = self.back[0].val
-        self.ahead.val = np.matmul(self.parameter, x)
+        kernel = self.parameter
+        in_h, in_w          = self.in_dim
+        kernel_h, kernel_w  = self.shape
+        out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
+
+        out_val = np.zeros((out_h, out_w))
+        if self.padding == 0:
+            for i in range(out_h):
+                for j in range(out_w):
+                    out_val[i][j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], kernel)
+        
+        self.ahead.val = out_val
 
     def grad(self, up_diff):
         grad_x = np.matmul(up_diff, self.parameter)
@@ -74,7 +85,7 @@ class Conv2d(functional):
 class Softmax(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(Softmax, self).__init__(in_dim, out_dim, parameter, diff)
-        self.ahead          = mtr.my_tensor(np.zeros((out_dim, 1)))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
 
@@ -117,7 +128,7 @@ class Softmax(functional):
 class ReLU(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(ReLU, self).__init__(in_dim, out_dim, parameter, diff)
-        self.ahead          = mtr.my_tensor(np.zeros((out_dim, 1)))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
 
@@ -137,7 +148,7 @@ class ReLU(functional):
 class Sigmoid(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(Sigmoid, self).__init__(in_dim, out_dim, parameter, diff)
-        self.ahead          = mtr.my_tensor(np.zeros((out_dim, 1)))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
 
@@ -156,7 +167,7 @@ class Sigmoid(functional):
 class PROJ(functional):
     def __init__(self, in_dim, proj_index, parameter=None, diff=None):
         super(PROJ, self).__init__(in_dim, (1, 1), parameter, diff)
-        self.ahead          = mtr.my_tensor(np.zeros((1, 1)))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
         self.proj_index     = proj_index
@@ -177,7 +188,7 @@ class PROJ(functional):
 class NLog(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(NLog, self).__init__(in_dim, out_dim, parameter, diff)
-        self.ahead          = mtr.my_tensor(np.zeros(out_dim))
+        self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
         self.back_num       = 1
 
