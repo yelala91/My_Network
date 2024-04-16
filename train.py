@@ -57,28 +57,33 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
         for b in batch:
             x, y = b
             loss = nn.Loss(model, x, y, k_num)
+            # print(f'epoch:{i} a batch have complete!')
             # print(f"loss = {loss}")
             if type == 0:
                 model.update(lr, sigma)
             ba += 1
+        
         train_loss.append(loss[0,0])
         valid_loss.append(np.squeeze(nn.Loss(model, x_valid_data, y_valid_data, k_num)))
 
         if i % int(epoch/3) == 0:
             lr /= 5
+            sigma /= 4
         acc = 0
         for j in range(len(x_valid_data)):
             if np.argmax(model.fval(x_valid_data[j]).val) == y_valid_data[j]:
                 acc += 1
         acc = acc/len(x_valid_data)
-        if acc > 0.78:
-            break
+        # if acc > 0.78:
+        #     break
         print(f"train done: {(i+1)/epoch*100:.2f}%, the accuracy: {acc*100:.2f}%, the norm of parameter: {norm_param(model.parameter()):.2e}")
+        
+    return train_loss, valid_loss
 
-    if type == 0:
-        plt.plot(train_loss)
-        # plt.plot(valid_loss)
-        plt.show()
+    # if type == 0:
+    #     plt.plot(train_loss)
+    #     plt.plot(valid_loss)
+    #     plt.show()
     
 def test(model, x_data, y_data):
     acc = 0

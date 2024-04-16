@@ -22,9 +22,6 @@ def layers(self, layer_list):
 class neural_network:
     def __init__(self):
         pass
-
-    def forward(self, x):
-        pass
     
     def forward(self):
         for layer in self.layers:
@@ -84,11 +81,11 @@ def Loss(model, x, y, kinds_num):
         L1.back.append(model.ahead())
         L2.back.append(L1.ahead)
 
-        model.fval(x[i].reshape(len(x[0]), 1))
+        model.fval(x[i])
         L1.fval()
         L2.fval()
 
-        loss += L2.ahead.val
+        loss += np.squeeze(L2.ahead.val)
         L2.ahead.backward(factor=n)
     loss /= n
     return loss

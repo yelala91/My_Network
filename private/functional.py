@@ -31,7 +31,8 @@ class LinFC(functional):
         self.diff = np.zeros((self.out_dim, self.in_dim+1))
 
     def fval(self):
-        x = self.back[0].val.reshape(self.in_dim, 1)
+        self.back[0].val = self.back[0].val.reshape(self.in_dim, 1)
+        x = self.back[0].val
         self.ahead.val = np.matmul(self.parameter[:, 1:], x) + self.parameter[:, [0]]
 
     def grad(self, up_diff):
@@ -77,9 +78,15 @@ class Conv2d(functional):
         shape = self.shape
         
         if self.in_ndim == 2:
-            self.diff = np.zeros((filter_num, *shape))
+            if filter_num == 1:
+                self.diff = np.zeros(shape)
+            else:
+                self.diff = np.zeros((filter_num, *shape))
         elif self.in_ndim == 3:
-            self.diff = np.zeros((filter_num, self.in_dim[0], *shape))
+            if filter_num == 1:
+                self.diff = np.zeros((self.in_dim[0], *shape))
+            else:
+                self.diff = np.zeros((filter_num, self.in_dim[0], *shape))
 
     def fval(self):
         x = self.back[0].val
@@ -101,7 +108,7 @@ class Conv2d(functional):
             else:
                 out_val = np.zeros((filter_num, out_h, out_w))
                 if self.padding == 0:
-                    for filter_out_val, filter_kernel in out_val, kernel:
+                    for filter_out_val, filter_kernel in zip(out_val, kernel):
                         for i in range(out_h):
                             for j in range(out_w):
                                 filter_out_val[i, j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], filter_kernel)
@@ -119,7 +126,7 @@ class Conv2d(functional):
             else:
                 out_val = np.zeros((filter_num, out_h, out_w))
                 if self.padding == 0:
-                    for filter_out_val, filter_kernel in out_val, kernel:
+                    for filter_out_val, filter_kernel in zip(out_val, kernel):
                         for c in range(channel_num):
                             for i in range(out_h):
                                 for j in range(out_w):
@@ -136,6 +143,9 @@ class Conv2d(functional):
         kernel_h, kernel_w  = self.shape
         grad_x = None
         
+        if np.ndim(np.squeeze(up_diff)) == 1:
+            up_diff = up_diff.T
+        
         if in_ndim == 2:
             in_h, in_w   = self.in_dim
             out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
@@ -144,13 +154,20 @@ class Conv2d(functional):
                 grad_x = np.zeros((in_h, in_w))
                 for i in range(out_h):
                     for j in range(out_w):
-                        grad_x[i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel)
+                        if (out_h, out_w) == (1, 1):
+                            grad_x[i:i+kernel_h, j:j+kernel_w] += (np.squeeze(up_diff) * kernel)
+                        else:
+                            grad_x[i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel)
             else:
                 grad_x = np.zeros((in_h, in_w))
-                for filter_kernel, filter_up_diff in kernel, up_diff:
+                for filter_kernel, filter_up_diff in zip(kernel, up_diff):
                     for i in range(out_h):
                         for j in range(out_w):
-                            grad_x[i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel)
+                            if (out_h, out_w) == (1, 1):
+                                grad_x[i:i+kernel_h, j:j+kernel_w] += (np.squeeze(filter_up_diff) * filter_kernel)
+                            else:
+                                grad_x[i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel)
+                            # grad_x[i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel)
         elif in_ndim == 3:
             channel_num, in_h, in_w = self.in_dim
             out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
@@ -160,14 +177,24 @@ class Conv2d(functional):
                 for c in range(channel_num):
                     for i in range(out_h):
                         for j in range(out_w):
-                            grad_x[c, i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel[c])
+                            if (out_h, out_w) == (1, 1):
+                                grad_x[c, i:i+kernel_h, j:j+kernel_w] += (np.squeeze(up_diff) * kernel[c])
+                            else:
+                                grad_x[c, i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel[c])
+                            # grad_x[c, i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel[c])
             else:
                 grad_x = np.zeros((channel_num, in_h, in_w))
-                for filter_kernel, filter_up_diff in kernel, up_diff:
+                for filter_kernel, filter_up_diff in zip(kernel, up_diff):
                     for c in range(channel_num):
                         for i in range(out_h):
                             for j in range(out_w):
-                                grad_x[c, i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel[c])
+                                if (out_h, out_w) == (1, 1):
+                                    # print(up_diff.shape)
+                                    # print(kernel.shape)
+                                    grad_x[c, i:i+kernel_h, j:j+kernel_w] += (np.squeeze(filter_up_diff) * filter_kernel[c])
+                                else:
+                                    grad_x[c, i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel[c])
+                                # grad_x[c, i:i+kernel_h, j:j+kernel_w] += (filter_up_diff[i, j] * filter_kernel[c])
         
         return [grad_x]
     
@@ -182,6 +209,8 @@ class Conv2d(functional):
         kernel  = self.parameter
         filter_num = self.filter_num
         kernel_h, kernel_w  = self.shape
+        if np.ndim(np.squeeze(up_diff)) == 1:
+            up_diff = up_diff.T
         
         if in_ndim == 2:
             in_h, in_w   = self.in_dim
@@ -190,27 +219,46 @@ class Conv2d(functional):
             if filter_num == 1:
                 for i in range(kernel_h):
                     for j in range(kernel_w):
-                        self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:out_w]))
+                        if out_h == 1 and out_w == 1:
+                            self.diff[i, j] += (np.squeeze(up_diff)*np.squeeze(x[i:i+out_h, j:j+out_w]))
+                        else:
+                            self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:j+out_w]))
+                        # self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:out_w]))
             else:
-                for filter_diff, filter_up_diff in self.diff, up_diff:
+                for filter_diff, filter_up_diff in zip(self.diff, up_diff):
                     for i in range(kernel_h):
                         for j in range(kernel_w):
-                            filter_diff[i, j] += (np.tensordot(filter_up_diff, x[i:i+out_h, j:out_w]))
+                            if out_h == 1 and out_w == 1:
+                                filter_diff[i, j] += (np.squeeze(filter_up_diff)*np.squeeze(x[i:i+out_h, j:j+out_w]))
+                            else:
+                                filter_diff[i, j] += (np.tensordot(filter_up_diff, x[i:i+out_h, j:j+out_w]))
+                            # filter_diff[i, j] += (np.tensordot(filter_up_diff, x[i:i+out_h, j:j+out_w]))
         elif in_ndim == 3:
             channel_num, in_h, in_w = self.in_dim
             out_h, out_w = in_h - kernel_h + 1, in_w - kernel_w + 1
             
             if filter_num == 1:
                 for c in range(channel_num):
-                    for i in range(out_h):
-                        for j in range(out_w):
-                            self.diff[c, i, j] += (np.tensordot(up_diff, x[c, i:i+out_h, j:out_w]))
+                    for i in range(kernel_h):
+                        for j in range(kernel_w):
+                            if out_h == 1 and out_w == 1:
+                                self.diff[c, i, j] += (np.squeeze(up_diff)*np.squeeze(x[c, i:i+out_h, j:j+out_w]))
+                            else:
+                                self.diff[c, i, j] += (np.tensordot(up_diff, x[c, i:i+out_h, j:j+out_w]))
+                            # self.diff[c, i, j] += (np.tensordot(up_diff, x[c, i:i+out_h, j:j+out_w]))
             else:
-                for filter_diff, filter_up_diff in self.diff, up_diff:
+                for filter_diff, filter_up_diff in zip(self.diff, up_diff):
                     for c in range(channel_num):
-                        for i in range(out_h):
-                            for j in range(out_w):
-                                filter_diff[c, i, j] += (np.tensordot(filter_up_diff, x[c, i:i+out_h, j:out_w]))
+                        for i in range(kernel_h):
+                            for j in range(kernel_w):
+                                # print(up_diff.shape)
+                                # print(x.shape)
+                                # print(filter_up_diff.shape)
+                                # print(out_h)
+                                if out_h == 1 and out_w == 1:
+                                    filter_diff[c, i, j] += (np.squeeze(filter_up_diff)*np.squeeze(x[c, i:i+out_h, j:j+out_w]))
+                                else:
+                                    filter_diff[c, i, j] += (np.tensordot(filter_up_diff, x[c, i:i+out_h, j:j+out_w]))
             
                 
 # Conv3d
@@ -276,7 +324,10 @@ class Softmax(functional):
         self.back_num       = 1
 
     def fval(self):
-        x               = self.back[0].val
+        if type(self.in_dim) is int:
+            self.back[0].val = self.back[0].val.reshape(self.in_dim, 1)
+
+        x = self.back[0].val
         # x += eps
         ex              = np.exp(x-np.max(x))
         self.ahead.val  = ex/np.sum(ex)
@@ -319,12 +370,20 @@ class ReLU(functional):
         self.back_num       = 1
 
     def fval(self):
-        x               = self.back[0].val
+        if type(self.in_dim) is int:
+            self.back[0].val = self.back[0].val.reshape(self.in_dim, 1)
+        
+        x = self.back[0].val
         self.ahead.val  = x * (x>=0)
 
     def grad(self, up_diff):
         x      = self.back[0].val
-        grad_x = up_diff * (x.T>=0)
+        if type(self.in_dim) is int:
+            grad_x = up_diff * (x.T>=0)
+            # print(grad_x.shape)
+        else:
+            grad_x = up_diff * (x>=0)
+        
         return [grad_x]
 
     def update_diff(self, up_diff):
