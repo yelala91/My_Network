@@ -21,7 +21,7 @@ class functional:
 class LinFC(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(LinFC, self).__init__(in_dim, out_dim, parameter, diff)
-        self.parameter      = np.random.randn(out_dim, in_dim+1)
+        self.parameter      = np.random.randn(out_dim, in_dim+1) 
         self.diff           = np.zeros((out_dim, in_dim+1))
         self.ahead          = mtr.my_tensor()
         self.ahead.operator = self
@@ -49,6 +49,7 @@ class LinFC(functional):
 class Conv2d(functional):
     def __init__(self, in_dim, shape, filter_num=1, parameter=None, diff=None, padding=0, padding_val=0):
         super(Conv2d, self).__init__(in_dim, None, parameter, diff)
+        self.parameter      = 0
         self.shape          = shape
         self.ahead          = mtr.my_tensor()
         self.filter_num     = filter_num
@@ -389,7 +390,6 @@ class ReLU(functional):
     def update_diff(self, up_diff):
         pass
 
-
 class Sigmoid(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(Sigmoid, self).__init__(in_dim, out_dim, parameter, diff)
@@ -404,6 +404,53 @@ class Sigmoid(functional):
     def grad(self, up_diff):
         x      = self.back[0].val
         grad_x = up_diff * (np.exp(-x)/(np.power(1+np.exp(-x), 2))).T
+        return [grad_x]
+
+    def update_diff(self, up_diff):
+        pass
+
+class Pooling2d(functional):
+    def __init__(self, in_dim, out_dim, type='max', shape=(2, 2), parameter=None, diff=None):
+        super(Pooling2d, self).__init__(in_dim, out_dim, parameter, diff)
+        self.shape          = shape
+        self.type           = type
+        self.ahead          = mtr.my_tensor()
+        self.ahead.operator = self
+        self.back_num       = 1
+        self.max_index      = None
+
+    def fval(self):
+        x = self.back[0].val
+        self.max_index = np.zeros(self.out_dim)
+        m, n = self.out_dim
+        out_val = np.zeros(self.out_dim)
+        if self.type == 'max':
+            for i in range(m):
+                for j in range(n):
+                    temp = np.array([x[2*i, 2*j], x[2*i+1, 2*j], x[2*i, 2*j+1], x[2*i+1, 2*j+1]])
+                    index = np.argmax(temp)
+                    self.max_index[i, j] = index
+                    out_val[i, j] = temp[index]
+
+        self.ahead.val = out_val
+
+    def grad(self, up_diff):
+        x      = self.back[0].val
+        max_index = self.max_index
+        grad_x = np.zeros(self.in_dim)
+        m, n = self.out_dim
+        if type == 'max':
+            for i in range(m):
+                for j in range(n):
+                    if max_index[i, j] == 0:
+                        grad_x[2*i, 2*j] = up_diff[i, j]
+                    elif max_index[i, j] == 1:
+                        grad_x[2*i+1, 2*j] = up_diff[i, j]
+                    elif max_index[i, j] == 2:
+                        grad_x[2*i, 2*j+1] = up_diff[i, j]
+                    else:
+                        grad_x[2*i+1, 2*j+1] = up_diff[i, j]
+                        
         return [grad_x]
 
     def update_diff(self, up_diff):
