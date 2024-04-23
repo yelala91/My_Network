@@ -1,10 +1,15 @@
-# neural_network
+# neural_network.py
+# 
+# ===============================================================
+# The definition of the class neural network.
+# ===============================================================
 
 import functional as fnl
 import numpy as np
 import my_tensor as mtr
 import train as tr
 
+# init the hidden layers
 def layer_init(layers):
     start = mtr.my_tensor()
     back = start
@@ -45,6 +50,7 @@ class neural_network:
     def ahead(self):
         return self.layers[-1].ahead
     
+    # get parameter
     def parameter(self):
         param = []
         for layer in self.layers:
@@ -52,14 +58,17 @@ class neural_network:
                 param.append(layer.parameter)
         return param
     
+    # update parameter
     def update(self, lr, sigma):
         for layer in self.layers:
             if layer.parameter is not None:
                 layer.parameter += -lr * (layer.diff + sigma*layer.parameter)
-                
+    
+    # save parameter            
     def save_param(self, path):
         np.savez(path, *(self.parameter()))
-                
+    
+    # load parameter
     def load_param(self, param_path):
         param_dic = np.load(param_path)
         param_list = list(param_dic.values())
@@ -79,15 +88,16 @@ class neural_network:
 class my_nn(neural_network):
     def __init__(self):
         super().__init__()
-        self.layers = [
+
+        layers(self, [
             fnl.LinFC(784, 128),
+            fnl.ReLU(128, 128),
             fnl.LinFC(128, 32),
-            fnl.LinFC(32, 10)
-        ]
-    
-    def forward(self, x):
-        for layer in self.layers:
-            x = layer.val(x)
+            fnl.ReLU(32, 32),
+            fnl.LinFC(32, 10),
+            fnl.Softmax(10, 10)
+        ])
+
 
 
 def Loss(model, x, y, kinds_num, sigma):

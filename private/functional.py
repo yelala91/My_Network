@@ -1,4 +1,8 @@
 # functional.py
+# 
+# ===============================================================
+# The hidden layers for network.
+# ===============================================================
 
 import numpy as np
 import my_tensor as mtr
@@ -6,7 +10,7 @@ import my_tensor as mtr
 eps = 1e-6
 
 class functional:
-    # diff is the diff of the last loss about these parameter
+    # diff is the gradient of the last loss about these parameter
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         self.in_dim     = in_dim
         self.out_dim    = out_dim
@@ -43,9 +47,8 @@ class LinFC(functional):
         x = self.back[0].val
         self.diff[:, 1:] = self.diff[:, 1:] + np.matmul(up_diff.T, x.T)
         self.diff[:, [0]] = up_diff.T
-        # self.diff += np.matmul(up_diff.T, x.T)
         
-# Conv2d functional
+# Conv2d functional(debug)
 class Conv2d(functional):
     def __init__(self, in_dim, shape, filter_num=1, parameter=None, diff=None, padding=0, padding_val=0):
         super(Conv2d, self).__init__(in_dim, None, parameter, diff)
@@ -200,10 +203,6 @@ class Conv2d(functional):
         return [grad_x]
     
     def update_diff(self, up_diff):
-        # x = self.back[0].val
-        # in_h, in_w          = self.in_dim
-        # kernel_h, kernel_w  = self.shape
-        # out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
         
         x = self.back[0].val
         in_ndim = self.in_ndim
@@ -252,69 +251,10 @@ class Conv2d(functional):
                     for c in range(channel_num):
                         for i in range(kernel_h):
                             for j in range(kernel_w):
-                                # print(up_diff.shape)
-                                # print(x.shape)
-                                # print(filter_up_diff.shape)
-                                # print(out_h)
                                 if out_h == 1 and out_w == 1:
                                     filter_diff[c, i, j] += (np.squeeze(filter_up_diff)*np.squeeze(x[c, i:i+out_h, j:j+out_w]))
                                 else:
                                     filter_diff[c, i, j] += (np.tensordot(filter_up_diff, x[c, i:i+out_h, j:j+out_w]))
-            
-                
-# Conv3d
-# class Conv3d(functional):
-#     def __init__(self, in_dim, shape, parameter=None, diff=None, padding=0, padding_val=0):
-#         super(Conv3d, self).__init__(in_dim, None, parameter, diff)
-#         self.parameter      = np.random.randn(shape)
-#         self.shape          = shape
-#         self.diff           = np.zeros(shape)
-#         self.ahead          = mtr.my_tensor()
-#         self.ahead.operator = self
-#         self.back_num       = 1
-
-#     def zero_diff(self):
-#         self.diff = np.zeros(self.shape)
-
-#     def fval(self):
-#         x = self.back[0].val
-        
-#         kernel = self.parameter
-#         in_h, in_w          = self.in_dim
-#         kernel_dim, kernel_h, kernel_w  = self.shape
-#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
-
-#         out_val = np.zeros((out_h, out_w))
-#         if self.padding == 0:
-#             for i in range(out_h):
-#                 for j in range(out_w):
-#                     out_val[i][j] = np.tensordot(x[i:i+kernel_h, j:j+kernel_w], kernel)
-        
-#         self.ahead.val = out_val
-
-#     def grad(self, up_diff):
-#         in_h, in_w          = self.in_dim
-#         kernel_h, kernel_w  = self.shape
-#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
-        
-#         grad_x = np.zeros((in_h, in_w))
-#         kernel = self.parameter
-        
-#         for i in range(out_h):
-#             for j in range(out_w):
-#                 grad_x[i:i+kernel_h, j:j+kernel_w] += (up_diff[i, j] * kernel)
-        
-#         return [grad_x]
-    
-#     def update_diff(self, up_diff):
-#         x = self.back[0].val
-#         in_h, in_w          = self.in_dim
-#         kernel_h, kernel_w  = self.shape
-#         out_h, out_w        = in_h - kernel_h + 1, in_w - kernel_w + 1
-        
-#         for i in range(kernel_h):
-#             for j in range(kernel_w):
-#                 self.diff[i, j] += (np.tensordot(up_diff, x[i:i+out_h, j:out_w]))
 
 # Softmax function
 class Softmax(functional):
@@ -329,7 +269,6 @@ class Softmax(functional):
             self.back[0].val = self.back[0].val.reshape(self.in_dim, 1)
 
         x = self.back[0].val
-        # x += eps
         ex              = np.exp(x-np.max(x))
         self.ahead.val  = ex/np.sum(ex)
 
@@ -338,31 +277,17 @@ class Softmax(functional):
         ex          = np.exp(x-np.max(x))
         sum_ex      = np.sum(ex)
         ex /= sum_ex
-        # sum_ex_2    = sum_ex ** 2
         this_grad_x = np.matmul(ex, ex.T)
-        diag        = np.diag(ex.reshape(len(ex))) # np.diag([np.squeeze(ex_i)*sum_ex for ex_i in ex])
+        diag        = np.diag(ex.reshape(len(ex)))
         this_grad_x = diag - this_grad_x
-        # this_grad_x = this_grad_x/sum_ex_2
         grad_x      = np.matmul(up_diff, this_grad_x)
 
         return [grad_x]
-    
-    # def grad(self, up_diff):
-    #     x           = self.back[0].val
-    #     ex          = np.exp(x)
-    #     sum_ex      = np.sum(ex)
-    #     sum_ex_2    = sum_ex ** 2
-    #     this_grad_x = np.matmul(ex, ex.T)
-    #     diag        = np.diag([np.squeeze(ex_i)*sum_ex for ex_i in ex])
-    #     this_grad_x = diag - this_grad_x
-    #     this_grad_x = this_grad_x/sum_ex_2
-    #     grad_x      = np.matmul(up_diff, this_grad_x)
-
-    #     return [grad_x]
 
     def update_diff(self, up_diff):
         pass
 
+# ReLU function
 class ReLU(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(ReLU, self).__init__(in_dim, out_dim, parameter, diff)
@@ -390,6 +315,7 @@ class ReLU(functional):
     def update_diff(self, up_diff):
         pass
 
+# Sigmoid function
 class Sigmoid(functional):
     def __init__(self, in_dim, out_dim, parameter=None, diff=None):
         super(Sigmoid, self).__init__(in_dim, out_dim, parameter, diff)
@@ -409,6 +335,7 @@ class Sigmoid(functional):
     def update_diff(self, up_diff):
         pass
 
+# Pooling2d function(debug)
 class Pooling2d(functional):
     def __init__(self, in_dim, out_dim, type='max', shape=(2, 2), parameter=None, diff=None):
         super(Pooling2d, self).__init__(in_dim, out_dim, parameter, diff)
@@ -498,12 +425,6 @@ class NLog(functional):
 
     def update_diff(self, up_diff):
         pass
-
-# class Loss(functional):
-#     def __init__(self, in_dim, N, labels, parameter=None, diff=None):
-#         super(TensorAdd, self).__init__(in_dim, (1, 1), parameter, diff)
-#         self.N = N
-#         self.labels = labels
 
 class TensorAdd(functional):
     def __init__(self, t1, t2, parameter=None, diff=None):

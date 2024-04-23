@@ -1,49 +1,26 @@
 # train.py
 # 
-# ==============================================================
-# Some functions about mode training and data processing:
-# 
-# data_split:
-#   Split data base on the batch_size.
-#   parameter:
-#       x_data------the origin training data.
-#       y_data------the lable data of x_data.
-#       batch_size--the size for each batch.
-#       rand--------the random seed.
-#
-# valid_data:
-#   choose some data as valid data.
-#   parameter:
-#       x_data------the origin training data.
-#       y_data------the lable data of x_data.
-#       rate--------the The percentage of the validation set.
-#
-# train:
-#   model training.
-#   parameter:
-#       model-------the model need to be trained.
-#       x_data------the train set.
-#       y_data------the label set.
-#       k_num-------the total number of class.
-#       batch_size--the batch size.
-#       epoch-------the epoch.
-#       sigma-------the parameter of L2 regularization.
-#       lr----------the learning rate.
-#       type--------the training type.
-#
-# test:
-#   model test.
-# 
-# norm_param:
-#   return the norm of the parameter of model.
+# ===============================================================
+# Some functions about mode training and data processing.
 # ===============================================================
 
 import neural_network as nn
 import numpy as np
 from tqdm import tqdm
+from mnist_reader import load_mnist
 
-def data_transform(x_data, y_data, out_shape):
-    123
+def data_read(data_path, capacity=2048):
+    x_train_data, y_train_data = load_mnist(data_path)
+    x_test_data, y_test_data = load_mnist(data_path, kind='t10k')
+
+    n, m = len(x_train_data), capacity
+    choice = np.random.choice(n, size=m, replace=False)
+    x_train_data, y_train_data = x_train_data[choice], y_train_data[choice]
+
+    x_train_data = x_train_data/255
+    x_test_data = x_test_data/255
+    
+    return x_train_data, y_train_data, x_test_data, y_test_data
 
 def data_split(x_data, y_data, batch_size, rand=0):
     n = len(x_data)
@@ -97,12 +74,10 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
         batchs = data_split(x_data, y_data, batch_size)
         for x, y in batchs:
             loss += nn.Loss(model, x, y, k_num, sigma)  # compute loss and gradient at the same time
-            # loss += 0.5*sigma*norm_param(model.parameter())**2
-            model.update(lr, sigma)             # update parameters of model base on SGD
+            model.update(lr, sigma)                     # update parameters of model base on SGD
 
         v_loss = np.squeeze(nn.Loss(model, x_valid_data, y_valid_data, k_num, sigma))
 
-        # v_loss += 0.5*sigma*norm_param(model.parameter())**2
         train_loss.append(loss[0,0]/len(batchs))
         valid_loss.append(v_loss)
 
@@ -112,26 +87,14 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
         print(f' train acc: {train_acc*100:.2f}%, valid acc: {valid_acc*100:.2f}%, paranorm: {norm_param(model.parameter()):.2e}.')
         valid_acc_list.append(valid_acc)
         train_acc_list.append(train_acc)
-        if valid_acc >= best_v_acc + 0.02:
+        if valid_acc >= best_v_acc:
             best_v_acc = valid_acc
             best = model.parameter()
 
         # modify the learning rate
         if i % int(epoch/8) == 0:
-            lr /= 4
-            sigma /= 6
-        # if i ==  int(epoch/8)*3:
-        #     lr /= 10
-        #     sigma /= 5
-        # if i == int(epoch/8)*5:
-        #     lr /= 10
-        #     sigma /= 10
-        # if i == int(epoch/8)*6:
-        #     lr /= 5
-        #     sigma /= 5
-        # if i == int(epoch/8)*7:
-        #     lr /= 5
-        #     sigma = 0
+            lr /= 3
+            sigma /= 2.5
 
     model.load_param_from_list(best)
     return train_loss, valid_loss, train_acc_list, valid_acc_list
@@ -149,6 +112,6 @@ def test(model, x_data, y_data):
 def norm_param(param_list):
     res = 0.0
     for p in param_list:
-        res += np.linalg.norm(p)
+        res += np.linalg.norm(p)**2
         
-    return res
+    return res**0.5
