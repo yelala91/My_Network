@@ -10,8 +10,8 @@
 
 ```python
 import os
-import sys
-sys.path.append('.'+ os.sep + 'private')
+import sys; sys.path.append('.'+ os.sep + 'private')
+import private.train as tr
 
 data_path = '.'+ os.sep + 'data' + os.sep + 'fashion'
 x_train_data, y_train_data, x_test_data, y_test_data = tr.data_read(data_path=data_path, capacity=2048)
@@ -42,8 +42,6 @@ class my_nn(nn.neural_network):
 目前隐藏层仅支持全连接层 LinFC, 激活函数支持 Sigmoid 和 ReLU. 定义并实例化神经网络后设置超参数, 然后调用 `train(...)` 进行训练.
 
 ```python
-import private.train as tr
-
 epoch           = 80
 sigma           = 0.05   # the parameter of L2 regularization
 batch_size      = 32
