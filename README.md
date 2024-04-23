@@ -24,11 +24,12 @@ x_train_data, y_train_data, x_test_data, y_test_data = tr.data_read(data_path=da
   
 ```python
 import private.functional as fnl
+import private.neural_network as nn
 
-class my_nn(neural_network):
+class my_nn(nn.neural_network):
     def __init__(self):
         super().__init__()
-        layers(self, [
+        nn.layers(self, [
             fnl.LinFC(784, 128),
             fnl.ReLU(128, 128),
             fnl.LinFC(128, 32),
