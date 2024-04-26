@@ -8,10 +8,16 @@ import neural_network as nn
 import numpy as np
 from tqdm import tqdm
 from mnist_reader import load_mnist
+import matplotlib.pyplot as plt
 
-def data_read(data_path, capacity=2048):
+def data_read(data_path, capacity=2048, out_shape=None):
     x_train_data, y_train_data = load_mnist(data_path)
     x_test_data, y_test_data = load_mnist(data_path, kind='t10k')
+    
+    if out_shape is not None:
+        n1, n2 = len(x_train_data), len(x_test_data)
+        x_train_data = x_train_data.reshape(n1, *out_shape)
+        x_test_data  = x_test_data.reshape(n2, *out_shape)
 
     n, m = len(x_train_data), capacity
     choice = np.random.choice(n, size=m, replace=False)
@@ -108,7 +114,32 @@ def test(model, x_data, y_data):
         if model_fun(x) == y:
             acc += 1
     return acc/n
+
+def display(train_loss, train_acc, valid_loss, valid_acc, im_shape=None, para=None):
     
+    plt.figure()
+    plt.plot(train_acc, label='train acc')
+    plt.plot(valid_acc, label='valid acc')
+    plt.legend()
+
+    plt.figure()
+    plt.plot(train_loss, label='train loss')
+    plt.plot(valid_loss, label='valid loss')
+    plt.legend()
+    
+    if im_shape is not None:
+        figure, axes = plt.subplots(2, 5)
+        axes = axes.reshape(10)
+
+        for i in range(10):
+            # for p in para:
+            #     p = p * p<0
+            # feature = np.matmul(para[2][:, 1:], para[1][:, 1:]) 
+            # feature = np.matmul(feature, para[0][:, 1:])
+            axes[i].imshow(para[0][i, 1:].reshape(*im_shape), cmap='gray', interpolation='bicubic')
+
+    plt.show() 
+
 def norm_param(param_list):
     res = 0.0
     for p in param_list:
