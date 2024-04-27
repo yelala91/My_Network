@@ -1,3 +1,9 @@
+# compare.py
+# 
+# ===============================================================
+# Compare the training of different sigma and learning rate.
+# ===============================================================
+
 import os
 import sys
 sys.path.append('.'+ os.sep + 'private')
@@ -5,7 +11,6 @@ import private.neural_network as nn
 import private.train as tr
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 compare = 0     # 0: learning rate, 1: sigma
 
@@ -22,7 +27,6 @@ train_loss_list = []; valid_loss_list = []; train_acc_list = []; valid_acc_list 
 for sigma in sigmas:
     j = 0
     for learning_rate in learning_rates:
-        # tnn.load_param('./saves/my_param_one_layer.npz')
         tnn = nn.my_nn()
         train_loss, valid_loss, train_acc, valid_acc = tr.train(tnn, x_train_data, y_train_data, 10 , batch_size, epoch, sigma=sigma, lr=learning_rate)
 
@@ -30,20 +34,16 @@ for sigma in sigmas:
         print(f'test acurracy: {test_acc*100: .2f}%')
 
         para = tnn.parameter()
-        # tnn.save_param('./saves/my_param_test')
         
         train_loss_list.append(train_loss)
         valid_loss_list.append(valid_loss)
         train_acc_list.append(train_acc)
         valid_acc_list.append(valid_acc)
-        # acc_table[i, j] = test_acc
-        # tr.display(train_loss, train_acc, valid_loss, valid_acc, settings=(epoch, sigma, batch_size, learning_rate))
         j += 1
     i += 1
     
 plt.figure()
 
-# plt.imshow(acc_table)
 lenth = len(learning_rates) if compare==0 else len(sigmas)
 
 for k in range(lenth):

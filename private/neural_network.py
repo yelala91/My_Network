@@ -119,6 +119,7 @@ class my_one_layer(neural_network):
             fnl.LinFC(784, 10),
             fnl.Softmax(10, 10)
         ])
+
 def Loss(model, x, y, kinds_num, sigma):
     n = len(x)
     loss = np.array([[0]], dtype='float64')
