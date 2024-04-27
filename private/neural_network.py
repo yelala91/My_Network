@@ -97,6 +97,19 @@ class my_nn(neural_network):
             fnl.LinFC(32, 10),
             fnl.Softmax(10, 10)
         ])
+        
+class my_larger_nn(neural_network):
+    def __init__(self):
+        super().__init__()
+
+        layers(self, [
+            fnl.LinFC(784, 256),
+            fnl.ReLU(256, 256),
+            fnl.LinFC(256, 64),
+            fnl.ReLU(64, 64),
+            fnl.LinFC(64, 10),
+            fnl.Softmax(10, 10)
+        ])
 
 class my_one_layer(neural_network):
     def __init__(self):

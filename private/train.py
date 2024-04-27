@@ -20,8 +20,8 @@ def data_read(data_path, capacity=2048, out_shape=None):
         x_test_data  = x_test_data.reshape(n2, *out_shape)
 
     n, m = len(x_train_data), capacity
-    choice = np.random.choice(n, size=m, replace=False)
-    x_train_data, y_train_data = x_train_data[choice], y_train_data[choice]
+    # choice = np.random.choice(n, size=m, replace=False)
+    x_train_data, y_train_data = x_train_data[: m], y_train_data[: m]
 
     x_train_data = x_train_data/255
     x_test_data = x_test_data/255
@@ -93,6 +93,7 @@ def train(model, x_data, y_data, k_num,  batch_size=32, epoch=150, sigma=0.1, lr
         print(f' train acc: {train_acc*100:.2f}%, valid acc: {valid_acc*100:.2f}%, paranorm: {norm_param(model.parameter()):.2e}.')
         valid_acc_list.append(valid_acc)
         train_acc_list.append(train_acc)
+        
         if valid_acc >= best_v_acc:
             best_v_acc = valid_acc
             best = model.parameter()
@@ -115,20 +116,27 @@ def test(model, x_data, y_data):
             acc += 1
     return acc/n
 
-def display(train_loss, train_acc, valid_loss, valid_acc, im_shape=None, para=None):
+def display(train_loss, train_acc, valid_loss, valid_acc, settings, im_shape=None, para=None):
+    
+    back_str = f'_epoch{settings[0]}' + f'_sigma{settings[1]}' + f'_batsize{settings[2]}' + f'_lr{settings[3]}'
     
     plt.figure()
     plt.plot(train_acc, label='train acc')
     plt.plot(valid_acc, label='valid acc')
     plt.legend()
+    
+    plt.savefig('./images/acc'+ back_str + '_.png')
 
     plt.figure()
     plt.plot(train_loss, label='train loss')
     plt.plot(valid_loss, label='valid loss')
     plt.legend()
     
+    plt.savefig('./images/loss'+ back_str + '_.png')
+    
     if im_shape is not None:
-        figure, axes = plt.subplots(2, 5)
+        figure, axes = plt.subplots(2, 5, figsize=(15, 10))
+        
         axes = axes.reshape(10)
 
         for i in range(10):
@@ -137,8 +145,10 @@ def display(train_loss, train_acc, valid_loss, valid_acc, im_shape=None, para=No
             # feature = np.matmul(para[2][:, 1:], para[1][:, 1:]) 
             # feature = np.matmul(feature, para[0][:, 1:])
             axes[i].imshow(para[0][i, 1:].reshape(*im_shape), cmap='gray', interpolation='bicubic')
+        
+        plt.savefig('./images/feature'+ back_str + '_.png')
 
-    plt.show() 
+    # plt.show() 
 
 def norm_param(param_list):
     res = 0.0

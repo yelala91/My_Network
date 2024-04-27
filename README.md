@@ -72,7 +72,7 @@ tnn.load_param('./saves/my_param_test.npz')
 
 ## 模型的测试
 
-调用 `test(...)` 进行在测试集上的测试, 返回在测试集上的正确率.
+调用 `test(...)` 进行在测试集上的测试, 返回在测试集上的正确率. 若要测试已经训练好的权重, 可以直接运行文件 `test_my_param.py`
 
 ```python
 test_acc = tr.test(tnn, x_test_data, y_test_data)
